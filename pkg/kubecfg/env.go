@@ -55,6 +55,32 @@ func (c *EnvAddCmd) Run() error {
 
 // ==================================================================
 
+type EnvRmCmd struct {
+	name string
+
+	rootPath metadata.AbsPath
+}
+
+func NewEnvRmCmd(name string, rootPath metadata.AbsPath) (*EnvRmCmd, error) {
+	return &EnvRmCmd{name: name, rootPath: rootPath}, nil
+}
+
+func (c *EnvRmCmd) Run() error {
+	manager, err := metadata.Find(c.rootPath)
+	if err != nil {
+		return err
+	}
+
+	extensionsLibData, k8sLibData, err := manager.GenerateKsonnetLibData(c.spec)
+	if err != nil {
+		return err
+	}
+
+	return manager.CreateEnvironment(c.name, c.uri, c.spec, extensionsLibData, k8sLibData)
+}
+
+// ==================================================================
+
 type EnvListCmd struct {
 	rootPath metadata.AbsPath
 }

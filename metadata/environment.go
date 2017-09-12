@@ -88,6 +88,53 @@ func (m *manager) CreateEnvironment(name, uri string, spec ClusterSpec, extensio
 	return afero.WriteFile(m.appFS, string(envSpecPath), envSpecData, os.ModePerm)
 }
 
+func (m *manager) DeleteEnvironment(name string) error {
+	envPath := appendToAbsPath(m.environmentsDir, name)
+
+	// Sanity check to make sure the path is contained within envs
+
+
+	// Sanity check to see that the environment exists
+	exists, err := afero.DirExists(m.appFS, envPath)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return error.Errorf("Environment %s does not exist", name)
+	}
+	
+	// Strip trailing slashes from the environment name.
+	for name[len(name)-1] == '/' {
+		name = name[0 : len(path)-1]
+	}
+
+	// Remove the directory and all files within the environment path.
+	err = m.appFS.RemoveAll(string(envPath))
+	if err != nil {
+		return err
+	}
+
+	// Walk up parent directorys to ensure empty directories are removed as well.
+	dirs := strings.Split(name, "/")
+	for i := len(dirs) - 2; i >= 0; i-- {
+		dirPath := appendToAbsPath(m.environmentsDir, )
+
+		isEmpty, err := afero.IsEmpty(appFS, 
+		if err != nil {
+			return err
+		}
+
+		if isEmpty {
+			err := m.appFS.RemoveAll("TODOPATH")
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func (m *manager) GetEnvironments() ([]Environment, error) {
 	envs := []Environment{}
 
