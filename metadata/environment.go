@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/afero"
 
@@ -85,6 +86,48 @@ func (m *manager) CreateEnvironment(name, uri string, spec ClusterSpec, extensio
 
 	envSpecPath := appendToAbsPath(envPath, specFilename)
 	return afero.WriteFile(m.appFS, string(envSpecPath), envSpecData, os.ModePerm)
+}
+
+func (m *manager) GetEnvironments() ([]Environment, error) {
+	envs := []Environment{}
+
+	err := afero.Walk(m.appFS, string(m.environmentsDir), func(path string, f os.FileInfo, err error) error {
+		isDir, err := afero.IsDir(m.appFS, path)
+		if err != nil {
+			return err
+		}
+
+		if isDir {
+			// Only want leaf directories containing a spec.json
+			specPath := filepath.Join(path, specFilename)
+			specFileExists, err := afero.Exists(m.appFS, specPath)
+			if err != nil {
+				return err
+			}
+			if specFileExists {
+				envName := filepath.Clean(strings.TrimPrefix(path, string(m.environmentsDir)+"/"))
+				specFile, err := afero.ReadFile(m.appFS, specPath)
+				if err != nil {
+					return err
+				}
+				var envSpec EnvironmentSpec
+				err = json.Unmarshal(specFile, &envSpec)
+				if err != nil {
+					return err
+				}
+
+				envs = append(envs, Environment{Name: envName, Path: path, URI: envSpec.URI})
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return envs, nil
 }
 
 func (m *manager) GenerateKsonnetLibData(spec ClusterSpec) ([]byte, []byte, error) {
