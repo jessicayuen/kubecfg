@@ -71,12 +71,7 @@ func (c *EnvRmCmd) Run() error {
 		return err
 	}
 
-	extensionsLibData, k8sLibData, err := manager.GenerateKsonnetLibData(c.spec)
-	if err != nil {
-		return err
-	}
-
-	return manager.CreateEnvironment(c.name, c.uri, c.spec, extensionsLibData, k8sLibData)
+	return manager.DeleteEnvironment(c.name)
 }
 
 // ==================================================================

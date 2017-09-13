@@ -17,6 +17,7 @@ package metadata
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -89,47 +90,47 @@ func (m *manager) CreateEnvironment(name, uri string, spec ClusterSpec, extensio
 }
 
 func (m *manager) DeleteEnvironment(name string) error {
-	envPath := appendToAbsPath(m.environmentsDir, name)
+	envPath := string(appendToAbsPath(m.environmentsDir, name))
 
-	// Sanity check to make sure the path is contained within envs
-
-
-	// Sanity check to see that the environment exists
-	exists, err := afero.DirExists(m.appFS, envPath)
+	envs, err := m.GetEnvironments()
 	if err != nil {
 		return err
 	}
-	if !exists {
-		return error.Errorf("Environment %s does not exist", name)
+
+	var allEnvPaths map[string]*Environment
+	for _, env := range envs {
+		allEnvPaths[env.Path] = &env
 	}
-	
-	// Strip trailing slashes from the environment name.
-	for name[len(name)-1] == '/' {
-		name = name[0 : len(path)-1]
+
+	// Check whether this environment exists
+	if allEnvPaths[envPath] == nil {
+		return errors.New("Environment \"" + string(envPath) + "\" does not exist.")
 	}
 
 	// Remove the directory and all files within the environment path.
-	err = m.appFS.RemoveAll(string(envPath))
+	err = m.appFS.RemoveAll(envPath)
 	if err != nil {
 		return err
 	}
 
-	// Walk up parent directorys to ensure empty directories are removed as well.
+	// Need to ensure empty parent directories are also removed.
+	//
+	// Achieve this by checking whether there is an existing environment using
+	// the path of the parent directory as a prefix.
 	dirs := strings.Split(name, "/")
-	for i := len(dirs) - 2; i >= 0; i-- {
-		dirPath := appendToAbsPath(m.environmentsDir, )
+	var parentDir string
+	for i := len(dirs) - 1; i >= 0; i-- {
+		parentDir = strings.TrimSuffix(name, "/"+dirs[i])
+		parentPath := string(appendToAbsPath(m.environmentsDir, parentDir))
 
-		isEmpty, err := afero.IsEmpty(appFS, 
-		if err != nil {
-			return err
-		}
-
-		if isEmpty {
-			err := m.appFS.RemoveAll("TODOPATH")
-			if err != nil {
-				return err
+		for _, env := range envs {
+			if strings.HasPrefix(env.Path, parentPath) {
+				continue
 			}
 		}
+
+		// Remove the empty parent directory
+		m.appFS.RemoveAll(parentPath)
 	}
 
 	return nil
